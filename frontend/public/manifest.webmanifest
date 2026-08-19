@@ -1,0 +1,17 @@
+{
+  "name": "Zaytseva Interior Workspace",
+  "short_name": "Zaytseva",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f4f0e9",
+  "theme_color": "#20201f",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

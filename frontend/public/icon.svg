@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#20201f"/>
+  <rect x="150" y="90" width="4" height="332" fill="#9d8b7a"/>
+  <rect x="358" y="90" width="4" height="332" fill="#9d8b7a"/>
+  <text x="256" y="305" text-anchor="middle" font-family="Georgia, serif" font-size="118" fill="#f4f0e9">ZI</text>
+</svg>

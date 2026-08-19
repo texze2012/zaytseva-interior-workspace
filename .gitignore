@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Python virtual environment
+backend/.venv/
+.venv/
+
+# Backend secrets
+backend/.env
+
+# PyCharm
+.idea/
+
+# Node.js
+frontend/node_modules/
+node_modules/
+
+# Next.js
+frontend/.next/
+.next/
+
+# Frontend local environment
+frontend/.env.local
+frontend/.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
