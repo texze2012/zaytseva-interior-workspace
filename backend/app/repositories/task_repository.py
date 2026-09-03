@@ -1,3 +1,4 @@
+from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,8 @@ def get_filtered_tasks(
     assignee_id: int | None = None,
     task_status: str | None = None,
     period: str | None = None,
+    due_from: date | None = None,
+    due_to: date | None = None,
     today=None
 ) -> list[Task]:
 
@@ -42,6 +45,16 @@ def get_filtered_tasks(
             Task.status != "done"
         )
 
+    if due_from is not None:
+        statement = statement.where(
+            Task.deadline >= due_from
+        )
+
+    if due_to is not None:
+        statement = statement.where(
+            Task.deadline <= due_to
+        )
+
     statement = statement.order_by(
         Task.deadline.asc().nulls_last(),
         Task.id.desc()
@@ -54,7 +67,7 @@ def get_filtered_tasks(
 def create_task(
     db: Session,
     *,
-    project_id: int,
+    project_id: int | None,
     stage_id: int | None,
     title: str,
     description: str | None,

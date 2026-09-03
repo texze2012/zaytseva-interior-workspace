@@ -1,12 +1,21 @@
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.user import User
+
 from app.repositories.task_comment_repository import (
     create_comment,
     get_comments_by_task,
 )
-from app.schemas.task_comment import TaskCommentCreate
-from app.services.task_service import get_project_task
+
+from app.schemas.task_comment import (
+    TaskCommentCreate,
+)
+
+from app.services.task_service import (
+    get_project_task,
+    get_task,
+)
 
 
 def add_task_comment(
@@ -50,3 +59,53 @@ def get_task_comments(
         db=db,
         task_id=task.id
     )
+
+def get_task_comments(
+    db: Session,
+    task_id: int
+):
+    task = get_task(
+        db=db,
+        task_id=task_id
+    )
+
+    return get_comments_by_task(
+        db=db,
+        task_id=task.id
+    )
+
+def create_task_comment(
+    db: Session,
+    task_id: int,
+    data: TaskCommentCreate,
+    current_user: User
+):
+    task = get_task(
+        db=db,
+        task_id=task_id
+    )
+
+    text = data.text.strip()
+
+    if not text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Комментарий не может быть пустым"
+        )
+
+    try:
+        comment = create_comment(
+            db=db,
+            task_id=task.id,
+            author_id=current_user.id,
+            text=text
+        )
+
+        db.commit()
+        db.refresh(comment)
+
+        return comment
+
+    except Exception:
+        db.rollback()
+        raise

@@ -13,7 +13,7 @@ from app.schemas.task import (
     TaskUpdate,
 )
 from app.services.task_service import (
-    change_task_status,
+    change_project_task_status,
     create_new_task,
     get_project_task,
     get_project_tasks,
@@ -43,7 +43,7 @@ def change_task_status_endpoint(
         Depends(get_current_user)
     ]
 ):
-    return change_task_status(
+    return change_project_task_status(
         db=db,
         project_id=project_id,
         task_id=task_id,

@@ -51,3 +51,16 @@ def create_user(
     db.refresh(user)
 
     return user
+
+def update_user_role(
+    db: Session,
+    user: User,
+    role: str
+) -> User:
+
+    user.role = role
+
+    db.commit()
+    db.refresh(user)
+
+    return user

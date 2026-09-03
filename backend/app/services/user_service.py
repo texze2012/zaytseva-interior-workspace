@@ -5,13 +5,16 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.models.user import User, UserRole
 from app.repositories.user_repository import (
     create_user,
     get_all_users,
     get_user_by_email,
     get_user_by_id,
+    update_user_role,
 )
 from app.schemas.user import UserCreate
+from app.schemas.user import UserRoleUpdate
 
 def authenticate_user(
     db: Session,
@@ -83,3 +86,35 @@ def get_user(
         )
 
     return user
+
+def change_user_role(
+    db: Session,
+    user_id: int,
+    data: UserRoleUpdate,
+    current_user: User
+):
+    user = get_user_by_id(
+        db,
+        user_id
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь не найден"
+        )
+
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя изменить собственную роль"
+        )
+
+    if user.role == data.role.value:
+        return user
+
+    return update_user_role(
+        db=db,
+        user=user,
+        role=data.role.value
+    )

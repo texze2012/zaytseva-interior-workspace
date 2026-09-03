@@ -7,20 +7,19 @@ from app.api.dependencies import (
     get_current_user,
     require_owner,
 )
-from app.models.user import User
-
 from app.db.session import get_db
-from app.schemas.user import UserCreate, UserRead
-from app.services.user_service import (
-    get_user,
-    get_users,
-    register_user,
-)
-
+from app.models.user import User
 from app.schemas.user import (
     UserCreate,
     UserOptionRead,
     UserRead,
+    UserRoleUpdate,
+)
+from app.services.user_service import (
+    change_user_role,
+    get_user,
+    get_users,
+    register_user,
 )
 
 
@@ -28,7 +27,6 @@ router = APIRouter(
     prefix="/users",
     tags=["Users"]
 )
-
 
 
 @router.post(
@@ -98,6 +96,31 @@ def get_user_options_endpoint(
     ]
 ):
     return get_users(db)
+
+
+@router.patch(
+    "/{user_id}/role",
+    response_model=UserRead
+)
+def change_user_role_endpoint(
+    user_id: int,
+    data: UserRoleUpdate,
+    db: Annotated[
+        Session,
+        Depends(get_db)
+    ],
+    current_owner: Annotated[
+        User,
+        Depends(require_owner)
+    ]
+):
+    return change_user_role(
+        db=db,
+        user_id=user_id,
+        data=data,
+        current_user=current_owner
+    )
+
 
 @router.get(
     "/{user_id}",

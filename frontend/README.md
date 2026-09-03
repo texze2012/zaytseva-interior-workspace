@@ -1,102 +1,63 @@
-# Zaytseva Interior — Frontend
+# Zaytseva Interior Workspace — frontend v2
 
-Готовый frontend для текущего FastAPI backend проекта Zaytseva Interior.
+Frontend рабочего пространства студии, перестроенный вокруг работы комплектатора.
 
-## Что уже работает
+## Что включено
 
-- Авторизация через `POST /auth/login`
-- Получение текущего пользователя через `GET /users/me`
-- Разные dashboard-сценарии для `owner` и `designer`
-- Проекты: список, создание, карточка проекта
-- Автоматически созданные этапы отображаются в карточке проекта
-- Задачи проекта: создание и список
-- Общая страница задач с desktop Kanban и mobile list
-- Workflow задачи: `planned -> in_progress -> review -> done`
-- Возврат Ольгой `review -> in_progress` с обязательной причиной
-- Комментарии к задачам
-- Календарь на ближайшие 7 дней по дедлайнам задач
-- Responsive/mobile-first адаптация с нижней навигацией
+- авторизация через существующий FastAPI `/auth/login`;
+- новый dashboard комплектатора `/dashboard/procurement`;
+- проекты и стандартные этапы;
+- комплектация проекта и карточка позиции;
+- контрольные точки позиции;
+- документы и фотографии у позиции комплектации;
+- раздел «Жду» с напоминаниями;
+- договорённости внутри проекта;
+- операционный контроль денег;
+- задачи, workflow, комментарии и вложения;
+- агрегированный календарь: месяц, неделя, произвольный период;
+- адаптация интерфейса для смартфона и desktop без отдельной мобильной стилистики.
 
-Экран `Активность` пока является заглушкой, потому что в backend ещё нет общего `ActivityLog` endpoint.
+Интерфейс не содержит демонстрационных проектов и фиктивных рабочих данных.
 
-## 1. Установка
+## Настройка
 
-Открой терминал в папке `frontend`:
-
-```powershell
-npm install
-```
-
-Создай `.env.local` на основе `.env.local.example`:
+Создайте `frontend/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
+Установите зависимости:
+
+```bash
+npm install
+```
+
 Запуск:
 
-```powershell
+```bash
 npm run dev
 ```
 
-Открыть:
+Frontend: `http://localhost:3000`
 
-```text
-http://localhost:3000
-```
+Backend: `http://127.0.0.1:8000`
 
-Backend должен быть запущен на:
+## Backend API, который использует эта версия
 
-```text
-http://127.0.0.1:8000
-```
+Новая часть frontend рассчитана на реализованные endpoints:
 
-## 2. Важно: CORS на FastAPI
+- `GET /dashboard/procurement`
+- `/projects/{project_id}/procurement-items`
+- `/projects/{project_id}/procurement-items/{item_id}/checkpoints`
+- `/waiting-items` и `/projects/{project_id}/waiting-items`
+- `/agreements` и `/projects/{project_id}/agreements`
+- `/payments`, `/payments/summary`, `/projects/{project_id}/payments`
+- `GET /calendar?date_from=...&date_to=...`
+- endpoints `attachments` для комментариев и позиций комплектации
 
-Frontend и backend работают на разных origin, поэтому в FastAPI нужно включить CORS.
+Существующие `/projects`, `/tasks`, `/users/me`, `/users/options`, `/auth/login` также используются.
 
-Смотри файл `BACKEND_REQUIRED_CHANGES.md`.
+## Замена предыдущей версии
 
-## 3. Пользователи в select
-
-Frontend поддерживает `/users/options`, чтобы и Ольга, и Кристина могли выбирать исполнителя без выдачи email.
-
-Если endpoint ещё не добавлен:
-- под Ольгой frontend временно использует `GET /users`;
-- под Кристиной в списке будет только её аккаунт.
-
-Добавь endpoint из `BACKEND_REQUIRED_CHANGES.md`, и оба аккаунта смогут видеть безопасный список исполнителей.
-
-## 4. Структура
-
-```text
-frontend/
-├── app/
-│   ├── (workspace)/
-│   │   ├── dashboard/
-│   │   ├── projects/
-│   │   ├── tasks/
-│   │   ├── calendar/
-│   │   └── activity/
-│   ├── globals.css
-│   ├── layout.tsx
-│   └── page.tsx
-├── components/
-├── lib/
-├── public/
-├── .env.local.example
-├── package.json
-└── tsconfig.json
-```
-
-## 5. Production
-
-Для production поменяй:
-
-```env
-NEXT_PUBLIC_API_URL=https://workspace-api.example.ru
-```
-
-или на адрес backend за Nginx.
-
-JWT сейчас хранится в `localStorage`, потому что текущий backend возвращает Bearer token JSON. Для первой рабочей версии это совместимо с уже написанным API. Перед публичным production-запуском лучше перевести сессию на Secure + HttpOnly cookie через BFF/route handler или изменить схему авторизации backend.
+Лучше сохранить старую папку `frontend` резервной копией, затем заменить её содержимое файлами из этого архива. Если у вас уже есть рабочий `.env.local`, сохраните его — в архиве находится только `.env.local.example`.

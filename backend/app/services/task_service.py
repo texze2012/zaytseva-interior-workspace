@@ -100,19 +100,12 @@ def get_task_feed(
         today=today
     )
 
-def change_task_status(
+def change_task_status_core(
     db: Session,
-    project_id: int,
-    task_id: int,
+    task,
     data: TaskStatusUpdate,
     current_user: User
 ):
-    task = get_project_task(
-        db=db,
-        project_id=project_id,
-        task_id=task_id
-    )
-
     current_status = TaskStatus(
         task.status
     )
@@ -157,14 +150,14 @@ def change_task_status(
         )
 
     is_return_to_work = (
-            current_status == TaskStatus.REVIEW
-            and new_status == TaskStatus.IN_PROGRESS
+        current_status == TaskStatus.REVIEW
+        and new_status == TaskStatus.IN_PROGRESS
     )
 
     if is_return_to_work:
         if (
-                data.comment is None
-                or not data.comment.strip()
+            data.comment is None
+            or not data.comment.strip()
         ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -179,12 +172,15 @@ def change_task_status(
         )
 
         if data.comment is not None:
-            create_comment(
-                db=db,
-                task_id=task.id,
-                author_id=current_user.id,
-                text=data.comment.strip()
-            )
+            comment_text = data.comment.strip()
+
+            if comment_text:
+                create_comment(
+                    db=db,
+                    task_id=task.id,
+                    author_id=current_user.id,
+                    text=comment_text
+                )
 
         db.commit()
         db.refresh(task)
@@ -194,6 +190,46 @@ def change_task_status(
     except Exception:
         db.rollback()
         raise
+
+
+def change_project_task_status(
+    db: Session,
+    project_id: int,
+    task_id: int,
+    data: TaskStatusUpdate,
+    current_user: User
+):
+    task = get_project_task(
+        db=db,
+        project_id=project_id,
+        task_id=task_id
+    )
+
+    return change_task_status_core(
+        db=db,
+        task=task,
+        data=data,
+        current_user=current_user
+    )
+
+
+def change_global_task_status(
+    db: Session,
+    task_id: int,
+    data: TaskStatusUpdate,
+    current_user: User
+):
+    task = get_task(
+        db=db,
+        task_id=task_id
+    )
+
+    return change_task_status_core(
+        db=db,
+        task=task,
+        data=data,
+        current_user=current_user
+    )
 
 def create_new_task(
     db: Session,
@@ -250,6 +286,54 @@ def create_new_task(
         deadline=data.deadline
     )
 
+def create_global_task(
+    db: Session,
+    data: TaskCreate,
+    current_user: User
+):
+    # Если проект всё-таки передан,
+    # используем уже существующую логику
+    # создания проектной задачи.
+    if data.project_id is not None:
+        return create_new_task(
+            db=db,
+            project_id=data.project_id,
+            data=data,
+            current_user=current_user
+        )
+
+    # У общей задачи не может быть этапа,
+    # потому что этап существует только внутри проекта.
+    if data.stage_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="У общей задачи не может быть этапа проекта"
+        )
+
+    assignee = get_user_by_id(
+        db,
+        data.assignee_id
+    )
+
+    if assignee is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Исполнитель не найден"
+        )
+
+    return create_task(
+        db=db,
+        project_id=None,
+        stage_id=None,
+        title=data.title,
+        description=data.description,
+        priority=data.priority.value,
+        assignee_id=data.assignee_id,
+        created_by_id=current_user.id,
+        deadline=data.deadline
+    )
+
+
 def get_project_tasks(
     db: Session,
     project_id: int
@@ -269,6 +353,23 @@ def get_project_tasks(
         db,
         project_id
     )
+
+def get_task(
+    db: Session,
+    task_id: int
+):
+    task = get_task_by_id(
+        db,
+        task_id
+    )
+
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Задача не найдена"
+        )
+
+    return task
 
 def get_project_task(
     db: Session,

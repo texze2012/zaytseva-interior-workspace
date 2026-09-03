@@ -1,21 +1,4 @@
 import { ReactNode } from "react";
-
-export function PageHeader({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="page-header">
-      <div>
-        <h1>{title}</h1>
-        {subtitle ? <p>{subtitle}</p> : null}
-      </div>
-      {action ? <div className="page-header__action">{action}</div> : null}
-    </div>
-  );
+export function PageHeader({ eyebrow, title, subtitle, actions }: { eyebrow?: string; title: string; subtitle?: string; actions?: ReactNode }) {
+  return <header className="page-header"><div>{eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}<h1>{title}</h1>{subtitle ? <p>{subtitle}</p> : null}</div>{actions ? <div className="page-header__actions">{actions}</div> : null}</header>;
 }

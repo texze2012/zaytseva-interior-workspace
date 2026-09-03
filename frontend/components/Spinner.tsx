@@ -1,3 +1,3 @@
-export function Spinner({ small = false }: { small?: boolean }) {
-  return <span className={small ? "spinner spinner--small" : "spinner"} />;
+export function Spinner() {
+  return <span className="spinner" aria-label="Загрузка" />;
 }

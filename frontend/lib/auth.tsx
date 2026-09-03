@@ -1,30 +1,18 @@
 "use client";
 
-import {
-  createContext,
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-
 import { api, loginRequest } from "@/lib/api";
 import { User } from "@/lib/types";
 
 const TOKEN_KEY = "zaytseva_interior_access_token";
-
 interface AuthContextValue {
   token: string | null;
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
   logout: () => void;
-  refreshUser: () => Promise<User | null>;
 }
-
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -34,95 +22,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const clearSession = useCallback(() => {
+  const clear = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
   }, []);
 
-  const loadUser = useCallback(
-    async (accessToken: string) => {
-      try {
-        const currentUser = await api.me(accessToken);
-        setToken(accessToken);
-        setUser(currentUser);
-        return currentUser;
-      } catch {
-        clearSession();
-        return null;
-      }
-    },
-    [clearSession]
-  );
+  const loadUser = useCallback(async (accessToken: string) => {
+    try {
+      const current = await api.me(accessToken);
+      setToken(accessToken);
+      setUser(current);
+      return current;
+    } catch {
+      clear();
+      return null;
+    }
+  }, [clear]);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
-
-    if (!storedToken) {
+    const saved = localStorage.getItem(TOKEN_KEY);
+    if (!saved) {
       setLoading(false);
       return;
     }
-
-    loadUser(storedToken).finally(() => setLoading(false));
+    loadUser(saved).finally(() => setLoading(false));
   }, [loadUser]);
 
   useEffect(() => {
-    if (!loading && !user && pathname !== "/") {
-      router.replace("/");
-    }
+    if (!loading && !user && pathname !== "/") router.replace("/");
   }, [loading, pathname, router, user]);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const result = await loginRequest(email, password);
-      localStorage.setItem(TOKEN_KEY, result.access_token);
-
-      const currentUser = await loadUser(result.access_token);
-
-      if (!currentUser) {
-        throw new Error("Не удалось загрузить профиль пользователя");
-      }
-
-      return currentUser;
-    },
-    [loadUser]
-  );
+  const login = useCallback(async (email: string, password: string) => {
+    const auth = await loginRequest(email, password);
+    localStorage.setItem(TOKEN_KEY, auth.access_token);
+    const current = await loadUser(auth.access_token);
+    if (!current) throw new Error("Не удалось загрузить профиль пользователя");
+    return current;
+  }, [loadUser]);
 
   const logout = useCallback(() => {
-    clearSession();
+    clear();
     router.replace("/");
-  }, [clearSession, router]);
+  }, [clear, router]);
 
-  const refreshUser = useCallback(async () => {
-    if (!token) return null;
-    return loadUser(token);
-  }, [loadUser, token]);
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      token,
-      user,
-      loading,
-      login,
-      logout,
-      refreshUser,
-    }),
-    [loading, login, logout, refreshUser, token, user]
-  );
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = useMemo(() => ({ token, user, loading, login, logout }), [token, user, loading, login, logout]);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("useAuth должен использоваться внутри AuthProvider");
-  }
-
-  return context;
+  const value = useContext(AuthContext);
+  if (!value) throw new Error("useAuth должен использоваться внутри AuthProvider");
+  return value;
 }

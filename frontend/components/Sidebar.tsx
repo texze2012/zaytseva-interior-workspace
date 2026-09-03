@@ -2,66 +2,58 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
+import { useEffect, useRef, useState } from "react";
+import { Icon, IconName } from "@/components/Icon";
 import { useAuth } from "@/lib/auth";
 import { getInitial } from "@/lib/format";
 
-const links = [
-  { href: "/dashboard", label: "Главная", mark: "⌂" },
-  { href: "/projects", label: "Проекты", mark: "▦" },
-  { href: "/tasks", label: "Задачи", mark: "✓" },
-  { href: "/calendar", label: "Календарь", mark: "□" },
-  { href: "/activity", label: "Активность", mark: "◌" },
+const links: Array<{ href: string; label: string; icon: IconName }> = [
+  { href: "/dashboard", label: "Главная", icon: "dashboard" },
+  { href: "/projects", label: "Проекты", icon: "projects" },
+  { href: "/waiting", label: "Жду", icon: "waiting" },
+  { href: "/calendar", label: "Календарь", icon: "calendar" },
+  { href: "/tasks", label: "Задачи", icon: "tasks" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  return (
-    <aside className="sidebar">
-      <div className="brand">
-        <div className="brand__monogram">ZI</div>
-        <div>
-          <div className="brand__name">Zaytseva</div>
-          <div className="brand__sub">INTERIOR</div>
-        </div>
-      </div>
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
 
-      <nav className="sidebar__nav">
-        {links.map((link) => {
-          const active =
-            pathname === link.href ||
-            (link.href !== "/dashboard" &&
-              pathname.startsWith(`${link.href}/`));
+  useEffect(() => { setOpen(false); }, [pathname]);
 
-          return (
-            <Link
-              className={`nav-link ${active ? "nav-link--active" : ""}`}
-              href={link.href}
-              key={link.href}
-            >
-              <span className="nav-link__mark">{link.mark}</span>
-              <span>{link.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+  return <aside className="sidebar">
+    <Link href="/dashboard" className="brand"><span className="brand__mark">ZI</span><span><strong>Zaytseva</strong><small>INTERIOR WORKSPACE</small></span></Link>
+    <nav className="sidebar__nav">
+      {links.map((link) => {
+        const active = pathname === link.href || (link.href !== "/dashboard" && pathname.startsWith(`${link.href}/`));
+        return <Link key={link.href} href={link.href} className={`nav-link ${active ? "nav-link--active" : ""}`}><Icon name={link.icon} size={18}/><span>{link.label}</span></Link>;
+      })}
+    </nav>
 
-      <button className="profile-card" onClick={logout} type="button">
-        <span className="avatar">
-          {getInitial(user?.name || "Z")}
-        </span>
-        <span className="profile-card__text">
-          <strong>{user?.name || "Пользователь"}</strong>
-          <small>
-            {user?.role === "owner"
-              ? "Руководитель студии"
-              : "Дизайнер"}
-          </small>
-        </span>
-        <span className="profile-card__logout">↗</span>
+    <div className="profile-menu" ref={wrapperRef}>
+      {open ? <div className="profile-menu__popover">
+        <div className="profile-menu__identity"><strong>{user?.name}</strong><span>{user?.email}</span></div>
+        <Link href="/profile" className="profile-menu__item"><Icon name="user" size={17}/><span>Профиль</span></Link>
+        {user?.role === "owner" ? <Link href="/team" className="profile-menu__item"><Icon name="projects" size={17}/><span>Управление командой</span></Link> : null}
+        <div className="profile-menu__divider"/>
+        <button type="button" className="profile-menu__item profile-menu__item--danger" onClick={logout}><Icon name="logout" size={17}/><span>Выйти</span></button>
+      </div> : null}
+
+      <button type="button" className={`profile-card ${open ? "profile-card--open" : ""}`} onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <span className="avatar">{getInitial(user?.name || "Z")}</span>
+        <span className="profile-card__text"><strong>{user?.name}</strong><small>{user?.role === "owner" ? "Руководитель студии" : "Дизайнер / комплектатор"}</small></span>
+        <Icon name="chevronRight" size={17}/>
       </button>
-    </aside>
-  );
+    </div>
+  </aside>;
 }

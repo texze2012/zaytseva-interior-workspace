@@ -42,3 +42,13 @@ def get_comments_by_task(
     return list(
         db.scalars(statement).all()
     )
+
+def get_comment_by_id(
+    db: Session,
+    comment_id: int
+) -> TaskComment | None:
+
+    return db.get(
+        TaskComment,
+        comment_id
+    )

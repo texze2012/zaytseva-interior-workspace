@@ -100,3 +100,27 @@ def create_stages_bulk(
     db.flush()
 
     return stages
+
+def get_stages_by_deadline_range(
+    db: Session,
+    *,
+    deadline_from,
+    deadline_to
+) -> list[ProjectStage]:
+
+    statement = (
+        select(ProjectStage)
+        .where(
+            ProjectStage.deadline.is_not(None),
+            ProjectStage.deadline >= deadline_from,
+            ProjectStage.deadline <= deadline_to
+        )
+        .order_by(
+            ProjectStage.deadline.asc(),
+            ProjectStage.position.asc()
+        )
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )

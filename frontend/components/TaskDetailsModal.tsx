@@ -1,291 +1,101 @@
 "use client";
-
-import { FormEvent, useEffect, useMemo, useState } from "react";
-
-import { Spinner } from "@/components/Spinner";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { AttachmentList } from "@/components/AttachmentList";
+import { FilePicker } from "@/components/FilePicker";
+import { Modal } from "@/components/Modal";
 import { TaskStatusBadge } from "@/components/StatusBadge";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import {
-  formatDate,
-  formatDateTime,
-  priorityLabel,
-} from "@/lib/format";
-import {
-  Task,
-  TaskComment,
-  TaskStatus,
-  UserOption,
-} from "@/lib/types";
+import { formatDate, formatDateTime, taskPriorityLabels } from "@/lib/format";
+import { Attachment, Task, TaskComment, TaskStatus, UserOption } from "@/lib/types";
 
-export function TaskDetailsModal({
-  task,
-  projectName,
-  assignees = [],
-  onClose,
-  onChanged,
-}: {
-  task: Task;
-  projectName?: string;
-  assignees?: UserOption[];
-  onClose: () => void;
-  onChanged: (task: Task) => void;
-}) {
+export function TaskDetailsModal({ task, projectName, users, onClose, onTaskUpdated }: { task: Task; projectName?: string; users: UserOption[]; onClose: () => void; onTaskUpdated: (task: Task) => void }) {
   const { token, user } = useAuth();
   const [comments, setComments] = useState<TaskComment[]>([]);
-  const [loadingComments, setLoadingComments] = useState(true);
-  const [commentText, setCommentText] = useState("");
-  const [returnReason, setReturnReason] = useState("");
+  const [attachments, setAttachments] = useState<Record<number, Attachment[]>>({});
+  const [text, setText] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [returnComment, setReturnComment] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [working, setWorking] = useState(false);
 
-  const authorMap = useMemo(
-    () => new Map(assignees.map((item) => [item.id, item.name])),
-    [assignees]
-  );
+  const userName = useMemo(() => new Map(users.map((item) => [item.id, item.name])), [users]);
 
-  useEffect(() => {
+  const loadComments = useCallback(async () => {
     if (!token) return;
-
-    setLoadingComments(true);
-    api
-      .comments(token, task.project_id, task.id)
-      .then(setComments)
-      .catch((err) =>
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Не удалось загрузить комментарии"
-        )
-      )
-      .finally(() => setLoadingComments(false));
+    setLoading(true); setError("");
+    try {
+      const list = await api.comments(token, task.project_id, task.id);
+      setComments(list);
+      const pairs = await Promise.all(list.map(async (comment) => {
+        try { return [comment.id, await api.commentAttachments(token, task.project_id, task.id, comment.id)] as const; }
+        catch { return [comment.id, []] as const; }
+      }));
+      setAttachments(Object.fromEntries(pairs));
+    } catch (e) { setError(e instanceof Error ? e.message : "Не удалось загрузить комментарии"); }
+    finally { setLoading(false); }
   }, [task.id, task.project_id, token]);
 
-  async function addComment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!token || !commentText.trim()) return;
+  useEffect(() => { loadComments(); }, [loadComments]);
 
-    setWorking(true);
-    setError("");
-
+  async function addComment(event: FormEvent) {
+    event.preventDefault(); if (!token || (!text.trim() && !files.length)) return;
+    setBusy(true); setError("");
     try {
-      const created = await api.addComment(
-        token,
-        task.project_id,
-        task.id,
-        commentText.trim()
-      );
-      setComments((current) => [...current, created]);
-      setCommentText("");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Не удалось добавить комментарий"
-      );
-    } finally {
-      setWorking(false);
-    }
+      const comment = await api.addComment(token, task.project_id, task.id, text.trim() || "Вложение");
+      const uploaded: Attachment[] = [];
+      for (const file of files) uploaded.push(await api.uploadCommentAttachment(token, task.project_id, task.id, comment.id, file));
+      setComments((current) => [...current, comment]);
+      setAttachments((current) => ({ ...current, [comment.id]: uploaded }));
+      setText(""); setFiles([]);
+    } catch (e) { setError(e instanceof Error ? e.message : "Не удалось добавить комментарий"); }
+    finally { setBusy(false); }
   }
 
-  async function moveTo(status: TaskStatus, comment?: string) {
+  async function changeStatus(status: TaskStatus) {
     if (!token) return;
-
-    setWorking(true);
-    setError("");
-
-    try {
-      const updated = await api.changeTaskStatus(
-        token,
-        task.project_id,
-        task.id,
-        status,
-        comment
-      );
-      onChanged(updated);
-
-      if (comment) {
-        const updatedComments = await api.comments(
-          token,
-          task.project_id,
-          task.id
-        );
-        setComments(updatedComments);
-      }
-      setReturnReason("");
-    } catch (err) {
-      setError(
-        err instanceof ApiError || err instanceof Error
-          ? err.message
-          : "Не удалось изменить статус"
-      );
-    } finally {
-      setWorking(false);
+    if (task.status === "review" && status === "in_progress" && !returnComment.trim()) {
+      setError("При возврате задачи в работу нужно указать комментарий"); return;
     }
+    setBusy(true); setError("");
+    try {
+      const updated = await api.changeTaskStatus(token, task.project_id, task.id, status, task.status === "review" && status === "in_progress" ? returnComment.trim() : undefined);
+      onTaskUpdated(updated); setReturnComment("");
+      if (task.status === "review" && status === "in_progress") await loadComments();
+    } catch (e) { setError(e instanceof Error ? e.message : "Не удалось изменить статус"); }
+    finally { setBusy(false); }
   }
 
-  const canWorkOwnTask =
-    user?.role === "designer" && task.assignee_id === user.id;
-  const owner = user?.role === "owner";
+  const allowed = useMemo<TaskStatus[]>(() => {
+    if (!user) return [];
+    if (user.role === "designer") {
+      if (task.assignee_id !== user.id) return [];
+      if (task.status === "planned") return ["in_progress"];
+      if (task.status === "in_progress") return ["review"];
+      return [];
+    }
+    if (task.status === "planned") return ["in_progress"];
+    if (task.status === "in_progress") return ["review"];
+    if (task.status === "review") return ["done", "in_progress"];
+    return [];
+  }, [task.assignee_id, task.status, user]);
 
-  return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <section
-        className="task-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="task-modal__header">
-          <div>
-            <span className="eyebrow">
-              {projectName || `ПРОЕКТ #${task.project_id}`}
-            </span>
-            <h2>{task.title}</h2>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            aria-label="Закрыть"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="task-modal__meta">
-          <TaskStatusBadge status={task.status} />
-          <span className={`priority priority--${task.priority}`}>
-            {priorityLabel[task.priority]}
-          </span>
-          <span>Дедлайн: {formatDate(task.deadline)}</span>
-          <span>
-            Исполнитель:{" "}
-            {authorMap.get(task.assignee_id) ||
-              `#${task.assignee_id}`}
-          </span>
-        </div>
-
-        {task.description ? (
-          <div className="task-description">{task.description}</div>
-        ) : null}
-
-        <div className="task-actions">
-          {task.status === "planned" && (owner || canWorkOwnTask) ? (
-            <button
-              className="button button--primary"
-              disabled={working}
-              onClick={() => moveTo("in_progress")}
-              type="button"
-            >
-              Начать работу
-            </button>
-          ) : null}
-
-          {task.status === "in_progress" &&
-          (owner || canWorkOwnTask) ? (
-            <button
-              className="button button--primary"
-              disabled={working}
-              onClick={() => moveTo("review")}
-              type="button"
-            >
-              Отправить на согласование
-            </button>
-          ) : null}
-
-          {task.status === "review" && owner ? (
-            <>
-              <button
-                className="button button--success"
-                disabled={working}
-                onClick={() => moveTo("done")}
-                type="button"
-              >
-                Согласовать
-              </button>
-            </>
-          ) : null}
-        </div>
-
-        {task.status === "review" && owner ? (
-          <div className="return-box">
-            <label className="field">
-              <span>Причина возврата</span>
-              <textarea
-                rows={3}
-                value={returnReason}
-                onChange={(event) =>
-                  setReturnReason(event.target.value)
-                }
-                placeholder="Что нужно исправить?"
-              />
-            </label>
-            <button
-              type="button"
-              className="button button--danger-outline"
-              disabled={working || !returnReason.trim()}
-              onClick={() =>
-                moveTo("in_progress", returnReason.trim())
-              }
-            >
-              Вернуть в работу
-            </button>
-          </div>
-        ) : null}
-
-        <div className="comments-block">
-          <div className="section-heading">
-            <h3>Комментарии</h3>
-            <span>{comments.length}</span>
-          </div>
-
-          {loadingComments ? (
-            <div className="inline-loading">
-              <Spinner small />
-              Загружаем комментарии
-            </div>
-          ) : comments.length ? (
-            <div className="comments-list">
-              {comments.map((comment) => (
-                <article className="comment" key={comment.id}>
-                  <div className="comment__avatar">
-                    {(authorMap.get(comment.author_id) || "?")
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="comment__head">
-                      <strong>
-                        {authorMap.get(comment.author_id) ||
-                          `Пользователь #${comment.author_id}`}
-                      </strong>
-                      <span>{formatDateTime(comment.created_at)}</span>
-                    </div>
-                    <p>{comment.text}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="muted">Комментариев пока нет.</p>
-          )}
-
-          <form className="comment-form" onSubmit={addComment}>
-            <textarea
-              rows={3}
-              value={commentText}
-              onChange={(event) => setCommentText(event.target.value)}
-              placeholder="Написать комментарий..."
-            />
-            <button
-              className="button button--secondary"
-              disabled={working || !commentText.trim()}
-              type="submit"
-            >
-              Отправить
-            </button>
-          </form>
-        </div>
-
+  return <Modal title={task.title} subtitle={projectName || "Общая задача"} onClose={onClose} wide>
+    <div className="details-grid">
+      <section className="details-main">
         {error ? <div className="form-error">{error}</div> : null}
+        <div className="details-meta"><TaskStatusBadge status={task.status}/><span>{taskPriorityLabels[task.priority]}</span><span>Дедлайн: {formatDate(task.deadline)}</span><span>Ответственный: {userName.get(task.assignee_id) || `ID ${task.assignee_id}`}</span></div>
+        {task.description ? <div className="rich-text">{task.description}</div> : <p className="muted">Описание не добавлено.</p>}
+
+        {allowed.length ? <div className="workflow-box"><strong>Действия по задаче</strong>{task.status === "review" && allowed.includes("in_progress") ? <label className="field"><span>Комментарий при возврате в работу</span><textarea rows={2} value={returnComment} onChange={(e) => setReturnComment(e.target.value)} placeholder="Что нужно исправить"/></label> : null}<div className="button-row">{allowed.map((status) => <button key={status} type="button" className={status === "done" ? "button button--primary" : "button button--secondary"} disabled={busy} onClick={() => changeStatus(status)}>{status === "in_progress" ? (task.status === "review" ? "Вернуть в работу" : "Начать работу") : status === "review" ? "Отправить на проверку" : "Подтвердить выполнение"}</button>)}</div></div> : null}
+
+        <div className="section-heading section-heading--compact"><div><h3>Комментарии</h3><p>Обсуждение и вложения по задаче</p></div></div>
+        {loading ? <div className="muted">Загружаем комментарии</div> : comments.length ? <div className="comment-list">{comments.map((comment) => <article className="comment" key={comment.id}><header><strong>{userName.get(comment.author_id) || `Пользователь ${comment.author_id}`}</strong><time>{formatDateTime(comment.created_at)}</time></header><p>{comment.text}</p><AttachmentList attachments={attachments[comment.id] || []} onDeleted={(id) => setAttachments((current) => ({ ...current, [comment.id]: (current[comment.id] || []).filter((item) => item.id !== id) }))}/></article>)}</div> : <p className="muted">Комментариев пока нет.</p>}
+
+        <form className="comment-form" onSubmit={addComment}><label className="field"><span>Новый комментарий</span><textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="Зафиксируйте сообщение или приложите документ"/></label><FilePicker files={files} onFiles={setFiles}/><div className="form-actions"><button className="button button--primary" disabled={busy || (!text.trim() && !files.length)}>{busy ? "Сохраняем" : "Добавить комментарий"}</button></div></form>
       </section>
+      <aside className="details-aside"><div className="detail-pair"><span>Создано</span><strong>{formatDateTime(task.created_at)}</strong></div><div className="detail-pair"><span>Обновлено</span><strong>{formatDateTime(task.updated_at)}</strong></div><div className="detail-pair"><span>Проект</span><strong>{projectName || "Не привязана"}</strong></div><div className="detail-pair"><span>Этап</span><strong>{task.stage_id ? `#${task.stage_id}` : "Без этапа"}</strong></div></aside>
     </div>
-  );
+  </Modal>;
 }

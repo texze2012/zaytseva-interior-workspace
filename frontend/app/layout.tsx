@@ -1,24 +1,13 @@
 import type { Metadata } from "next";
-
 import "@/app/globals.css";
 import { AuthProvider } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Zaytseva Interior Workspace",
-  description: "Рабочее пространство интерьерной студии",
+  description: "Рабочее пространство дизайн-студии",
   manifest: "/manifest.webmanifest",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="ru">
-      <body>
-        <AuthProvider>{children}</AuthProvider>
-      </body>
-    </html>
-  );
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <html lang="ru"><body><AuthProvider>{children}</AuthProvider></body></html>;
 }

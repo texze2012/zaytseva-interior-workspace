@@ -1,0 +1,31 @@
+"use client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Icon } from "@/components/Icon";
+import { AttachmentList } from "@/components/AttachmentList";
+import { FilePicker } from "@/components/FilePicker";
+import { Modal } from "@/components/Modal";
+import { ProcurementStatusBadge } from "@/components/StatusBadge";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { formatDate, formatMoney, procurementStatusLabels } from "@/lib/format";
+import { Attachment, ProcurementCheckpoint, ProcurementItem, ProcurementStatus } from "@/lib/types";
+
+export function ProcurementDetailsModal({ item, onClose, onUpdated }: { item: ProcurementItem; onClose: () => void; onUpdated: (item: ProcurementItem) => void }) {
+  const { token } = useAuth();
+  const [checkpoints, setCheckpoints] = useState<ProcurementCheckpoint[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [statusValue, setStatusValue] = useState<ProcurementStatus>(item.status);
+  const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const load = useCallback(async () => { if (!token) return; setLoading(true); setError(""); try { const [cp, at] = await Promise.all([api.checkpoints(token, item.project_id, item.id), api.procurementAttachments(token, item.project_id, item.id)]); setCheckpoints(cp); setAttachments(at); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось загрузить данные позиции"); } finally { setLoading(false); } }, [item.id, item.project_id, token]);
+  useEffect(() => { load(); }, [load]);
+
+  const grouped = useMemo(() => ({ before: checkpoints.filter((c) => c.phase === "before_order"), after: checkpoints.filter((c) => c.phase !== "before_order") }), [checkpoints]);
+  async function toggle(cp: ProcurementCheckpoint) { if (!token) return; setBusy(true); setError(""); try { const updated = await api.setCheckpoint(token, item.project_id, item.id, cp.id, !cp.is_completed); setCheckpoints((current) => current.map((x) => x.id === updated.id ? updated : x)); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось изменить контрольную точку"); } finally { setBusy(false); } }
+  async function changeStatus() { if (!token || statusValue === item.status) return; setBusy(true); setError(""); try { const updated = await api.updateProcurementItem(token, item.project_id, item.id, { status: statusValue }); onUpdated(updated); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось изменить статус"); setStatusValue(item.status); } finally { setBusy(false); } }
+  async function upload() { if (!token || !files.length) return; setBusy(true); setError(""); try { const uploaded: Attachment[] = []; for (const file of files) uploaded.push(await api.uploadProcurementAttachment(token, item.project_id, item.id, file)); setAttachments((current) => [...current, ...uploaded]); setFiles([]); } catch (e) { setError(e instanceof Error ? e.message : "Не удалось загрузить файлы"); } finally { setBusy(false); } }
+
+  function phase(title: string, list: ProcurementCheckpoint[]) { const done = list.filter((c) => c.is_completed).length; return <section className="checkpoint-group"><header><div><strong>{title}</strong><small>{done} из {list.length}</small></div><span>{list.length ? Math.round((done / list.length) * 100) : 0}%</span></header><div className="checkpoint-list">{list.map((cp) => <button type="button" className={`checkpoint ${cp.is_completed ? "checkpoint--done" : ""}`} key={cp.id} disabled={busy} onClick={() => toggle(cp)}><span className="checkpoint__box">{cp.is_completed ? <Icon name="check" size={13}/> : null}</span><span>{cp.label}</span></button>)}</div></section>; }
+
+  return <Modal title={item.name} subtitle={[item.room, item.category].filter(Boolean).join(" · ") || "Позиция комплектации"} onClose={onClose} wide><div className="details-grid"><section className="details-main">{error ? <div className="form-error">{error}</div> : null}<div className="details-meta"><ProcurementStatusBadge status={item.status}/><span>{item.quantity} {item.unit}</span><span>{formatMoney(item.total_amount, item.currency)}</span><span>Поставка: {formatDate(item.expected_delivery_date)}</span></div><div className="procurement-info-grid"><div><span>Бренд</span><strong>{item.brand || "—"}</strong></div><div><span>Артикул</span><strong>{item.article || "—"}</strong></div><div><span>Поставщик</span><strong>{item.supplier_name || "—"}</strong></div><div><span>Цена за единицу</span><strong>{formatMoney(item.unit_price, item.currency)}</strong></div></div>{item.notes ? <div className="rich-text">{item.notes}</div> : null}{item.product_url ? <a className="text-link" href={item.product_url} target="_blank" rel="noreferrer">Открыть ссылку на товар</a> : null}<div className="section-heading section-heading--compact"><div><h3>Контроль позиции</h3><p>Проверки до и после заказа</p></div></div>{loading ? <p className="muted">Загружаем контрольные точки</p> : <>{phase("До заказа", grouped.before)}{phase("После заказа", grouped.after)}</>}<div className="section-heading section-heading--compact"><div><h3>Документы и фотографии</h3><p>КП, счета, спецификации и материалы по позиции</p></div></div><AttachmentList attachments={attachments} onDeleted={(id) => setAttachments((current) => current.filter((x) => x.id !== id))}/><FilePicker files={files} onFiles={setFiles}/>{files.length ? <button type="button" className="button button--primary button--small" onClick={upload} disabled={busy}>{busy ? "Загружаем" : "Загрузить выбранные файлы"}</button> : null}</section><aside className="details-aside"><label className="field"><span>Статус позиции</span><select value={statusValue} onChange={(e) => setStatusValue(e.target.value as ProcurementStatus)}>{Object.entries(procurementStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><button type="button" className="button button--primary button--full" onClick={changeStatus} disabled={busy || statusValue === item.status}>Сохранить статус</button></aside></div></Modal>;
+}

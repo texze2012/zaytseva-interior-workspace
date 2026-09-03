@@ -1,218 +1,111 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-
-import { Spinner } from "@/components/Spinner";
-import { ApiError, api } from "@/lib/api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import {
-  ProjectStage,
-  Task,
-  TaskCreatePayload,
-  TaskPriority,
-  UserOption,
-} from "@/lib/types";
+import { Project, ProjectStage, Task, TaskPriority, UserOption } from "@/lib/types";
 
 export function NewTaskForm({
   projectId,
-  stages,
+  stages: initialStages = [],
+  projects: initialProjects = [],
   onCreated,
   onCancel,
 }: {
-  projectId: number;
-  stages: ProjectStage[];
+  projectId?: number | null;
+  stages?: ProjectStage[];
+  projects?: Project[];
   onCreated: (task: Task) => void;
   onCancel: () => void;
 }) {
   const { token, user } = useAuth();
   const [users, setUsers] = useState<UserOption[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [stages, setStages] = useState<ProjectStage[]>(initialStages);
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    project_id: projectId ? String(projectId) : "",
+    stage_id: "",
+    priority: "medium" as TaskPriority,
+    assignee_id: "",
+    deadline: "",
+  });
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [title, setTitle] = useState("");
-  const [stageId, setStageId] = useState("");
-  const [priority, setPriority] =
-    useState<TaskPriority>("medium");
-  const [assigneeId, setAssigneeId] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [description, setDescription] = useState("");
+  const fixedProject = projectId !== undefined && projectId !== null;
+  const selectedProjectId = form.project_id ? Number(form.project_id) : null;
 
   useEffect(() => {
     if (!token || !user) return;
+    Promise.all([
+      api.userOptions(token, user),
+      fixedProject || initialProjects.length ? Promise.resolve(initialProjects) : api.projects(token),
+    ]).then(([items, projectItems]) => {
+      setUsers(items);
+      if (!fixedProject) setProjects(projectItems);
+      setForm((current) => ({ ...current, assignee_id: current.assignee_id || String(user.id) }));
+    }).catch((e) => setError(e instanceof Error ? e.message : "Не удалось загрузить данные формы"));
+  }, [fixedProject, initialProjects, token, user]);
 
-    api
-      .userOptions(token, user)
-      .then((items) => {
-        setUsers(items);
-        const preferred =
-          items.find((item) => item.role === "designer") ?? items[0];
-        if (preferred) {
-          setAssigneeId(String(preferred.id));
-        }
-      })
-      .catch((err) =>
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Не удалось загрузить исполнителей"
-        )
-      )
-      .finally(() => setLoadingUsers(false));
-  }, [token, user]);
+  useEffect(() => {
+    if (!token || fixedProject) return;
+    if (!selectedProjectId) {
+      setStages([]);
+      setForm((current) => ({ ...current, stage_id: "" }));
+      return;
+    }
+    api.stages(token, selectedProjectId)
+      .then((items) => setStages(items))
+      .catch((e) => setError(e instanceof Error ? e.message : "Не удалось загрузить этапы проекта"));
+  }, [fixedProject, selectedProjectId, token]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const projectName = useMemo(
+    () => projects.find((item) => item.id === selectedProjectId)?.name,
+    [projects, selectedProjectId]
+  );
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
     if (!token) return;
-
-    setSubmitting(true);
+    setSaving(true);
     setError("");
-
     try {
-      const payload: TaskCreatePayload = {
-        title: title.trim(),
-        stage_id: stageId ? Number(stageId) : null,
-        priority,
-        assignee_id: Number(assigneeId),
-        deadline: deadline || null,
-        description: description.trim() || null,
+      const payload = {
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        stage_id: form.stage_id ? Number(form.stage_id) : null,
+        priority: form.priority,
+        assignee_id: Number(form.assignee_id),
+        deadline: form.deadline || null,
       };
-
-      const created = await api.createTask(
-        token,
-        projectId,
-        payload
-      );
-      onCreated(created);
-    } catch (err) {
-      setError(
-        err instanceof ApiError || err instanceof Error
-          ? err.message
-          : "Не удалось создать задачу"
-      );
+      const task = selectedProjectId
+        ? await api.createTask(token, selectedProjectId, payload)
+        : await api.createStandaloneTask(token, payload);
+      onCreated(task);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось создать задачу");
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   }
 
-  return (
-    <form className="inline-editor" onSubmit={submit}>
-      <div className="inline-editor__header">
-        <div>
-          <span className="eyebrow">НОВАЯ ЗАДАЧА</span>
-          <h3>Добавить задачу</h3>
-        </div>
-        <button
-          className="icon-button"
-          type="button"
-          onClick={onCancel}
-          aria-label="Закрыть"
-        >
-          ×
-        </button>
-      </div>
+  return <form className="form-stack" onSubmit={submit}>
+    {error ? <div className="form-error">{error}</div> : null}
 
-      <div className="form-grid">
-        <label className="field field--wide">
-          <span>Название *</span>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            minLength={2}
-            required
-          />
-        </label>
+    <label className="field"><span>Название</span><input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}/></label>
+    <label className="field"><span>Описание</span><textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}/></label>
 
-        <label className="field">
-          <span>Этап</span>
-          <select
-            value={stageId}
-            onChange={(event) => setStageId(event.target.value)}
-          >
-            <option value="">Общая задача проекта</option>
-            {stages.map((stage) => (
-              <option value={stage.id} key={stage.id}>
-                {stage.position}. {stage.name}
-              </option>
-            ))}
-          </select>
-        </label>
+    {!fixedProject ? <label className="field"><span>Проект</span><select value={form.project_id} onChange={(e) => setForm({ ...form, project_id: e.target.value, stage_id: "" })}><option value="">Не привязывать к проекту</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><small>{projectName ? `Задача будет связана с проектом «${projectName}»` : "Общая задача студии без привязки к объекту"}</small></label> : null}
 
-        <label className="field">
-          <span>Исполнитель *</span>
-          <select
-            value={assigneeId}
-            onChange={(event) => setAssigneeId(event.target.value)}
-            disabled={loadingUsers}
-            required
-          >
-            {users.map((item) => (
-              <option value={item.id} key={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
+    <div className="form-grid form-grid--2">
+      {selectedProjectId ? <label className="field"><span>Этап</span><select value={form.stage_id} onChange={(e) => setForm({ ...form, stage_id: e.target.value })}><option value="">Без этапа</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label> : null}
+      <label className="field"><span>Ответственный</span><select required value={form.assignee_id} onChange={(e) => setForm({ ...form, assignee_id: e.target.value })}><option value="">Выберите</option>{users.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label className="field"><span>Приоритет</span><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}><option value="low">Низкий</option><option value="medium">Средний</option><option value="high">Высокий</option><option value="urgent">Срочный</option></select></label>
+      <label className="field"><span>Дедлайн</span><input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}/></label>
+    </div>
 
-        <label className="field">
-          <span>Приоритет</span>
-          <select
-            value={priority}
-            onChange={(event) =>
-              setPriority(event.target.value as TaskPriority)
-            }
-          >
-            <option value="low">Низкий</option>
-            <option value="medium">Средний</option>
-            <option value="high">Высокий</option>
-            <option value="urgent">Срочный</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Дедлайн</span>
-          <input
-            type="date"
-            value={deadline}
-            onChange={(event) => setDeadline(event.target.value)}
-          />
-        </label>
-
-        <label className="field field--wide">
-          <span>Описание</span>
-          <textarea
-            rows={4}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </label>
-      </div>
-
-      {error ? <div className="form-error">{error}</div> : null}
-
-      <div className="form-actions">
-        <button
-          className="button button--ghost"
-          type="button"
-          onClick={onCancel}
-        >
-          Отмена
-        </button>
-        <button
-          className="button button--primary"
-          type="submit"
-          disabled={submitting || loadingUsers || !assigneeId}
-        >
-          {submitting ? (
-            <>
-              <Spinner small />
-              Создаём...
-            </>
-          ) : (
-            "Создать задачу"
-          )}
-        </button>
-      </div>
-    </form>
-  );
+    <div className="form-actions"><button type="button" className="button button--secondary" onClick={onCancel}>Отмена</button><button className="button button--primary" disabled={saving}>{saving ? "Создаём" : "Создать задачу"}</button></div>
+  </form>;
 }

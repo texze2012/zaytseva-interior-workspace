@@ -1,20 +1,4 @@
 import { ReactNode } from "react";
-
-export function EmptyState({
-  title,
-  text,
-  action,
-}: {
-  title: string;
-  text: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="empty-state">
-      <div className="empty-state__mark">ZI</div>
-      <h3>{title}</h3>
-      <p>{text}</p>
-      {action}
-    </div>
-  );
+export function EmptyState({ title, text, action }: { title: string; text?: string; action?: ReactNode }) {
+  return <div className="empty-state"><strong>{title}</strong>{text ? <p>{text}</p> : null}{action ? <div>{action}</div> : null}</div>;
 }

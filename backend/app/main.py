@@ -21,6 +21,31 @@ from app.api.dashboard import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.procurement_items import (
+    router as procurement_items_router,
+)
+from app.api.procurement_checkpoints import (
+    router as procurement_checkpoints_router,
+)
+from app.api.waiting_items import (
+    router as waiting_items_router,
+)
+from app.api.agreements import (
+    router as agreements_router,
+)
+from app.api.payments import (
+    router as payments_router,
+)
+from app.api.calendar import (
+    router as calendar_router,
+)
+from app.api.attachments import (
+    router as attachments_router,
+)
+from app.api.task_global import (
+    router as task_global_router,
+)
+
 app = FastAPI(
     title="Zaytseva Interior Workspace API",
     version="0.1.0",
@@ -47,6 +72,16 @@ app.include_router(tasks_router)
 app.include_router(task_comments_router)
 app.include_router(task_feed_router)
 app.include_router(dashboard_router)
+app.include_router(procurement_items_router)
+app.include_router(procurement_checkpoints_router)
+app.include_router(waiting_items_router)
+app.include_router(agreements_router)
+app.include_router(payments_router)
+app.include_router(calendar_router)
+app.include_router(
+    attachments_router
+)
+app.include_router(task_global_router)
 
 @app.get("/health", tags=["System"])
 def health_check():

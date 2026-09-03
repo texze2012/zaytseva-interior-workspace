@@ -8,3 +8,6 @@ __pycache__/
 
 frontend/node_modules/
 frontend/.next/
+
+# User uploads
+backend/storage/uploads/

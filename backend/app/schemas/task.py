@@ -15,17 +15,13 @@ class TaskPeriod(str, Enum):
     OVERDUE = "overdue"
 
 class TaskCreate(BaseModel):
-    title: str = Field(
-        min_length=2,
-        max_length=200
-    )
-
-    description: str | None = None
-
+    project_id: int | None = None
     stage_id: int | None = None
 
-    priority: TaskPriority = TaskPriority.MEDIUM
+    title: str
+    description: str | None = None
 
+    priority: TaskPriority = TaskPriority.MEDIUM
     assignee_id: int
 
     deadline: date | None = None
@@ -59,7 +55,7 @@ class TaskStatusUpdate(BaseModel):
 
 class TaskRead(BaseModel):
     id: int
-    project_id: int
+    project_id: int | None
     stage_id: int | None
 
     title: str
