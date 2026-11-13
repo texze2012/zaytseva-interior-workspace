@@ -3,6 +3,7 @@ from enum import Enum
 
 from sqlalchemy import (
     Date,
+    JSON,
     DateTime,
     ForeignKey,
     String,
@@ -60,6 +61,10 @@ class WaitingItem(Base):
         index=True
     )
 
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reminder_offsets: Mapped[list[int]] = mapped_column(JSON, default=list, server_default="[]")
+    assignee_ids: Mapped[list[int]] = mapped_column(JSON, default=list, server_default="[]")
+
     status: Mapped[str] = mapped_column(
         String(50),
         default=WaitingItemStatus.WAITING.value,
@@ -103,4 +108,7 @@ class WaitingItem(Base):
         if self.next_reminder_date is None:
             return False
 
+        if self.due_at is not None:
+            from datetime import timezone
+            return self.due_at.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc)
         return self.next_reminder_date <= date.today()

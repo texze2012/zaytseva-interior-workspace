@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 class CalendarEventType(str, Enum):
     TASK = "task"
+    REMINDER = "reminder"
+    EVENT = "event"
     WAITING = "waiting"
     PAYMENT = "payment"
     DELIVERY = "delivery"
@@ -35,6 +37,9 @@ class CalendarEventRead(BaseModel):
     amount: Decimal | None = None
     currency: str | None = None
 
+    due_at: datetime | None = None
+    assignee_ids: list[int] = []
+    created_by_id: int | None = None
     is_overdue: bool = False
 
 

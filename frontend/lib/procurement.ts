@@ -1,0 +1,2 @@
+export const procurementCategories=["Отделочные материалы","Лепной декор","Осветительные приборы","Электрооборудование","Сантехника","Мебель","Двери","Текстиль","Декор","Изделия на заказ"];
+export function safeProductLink(value?:string|null){if(!value)return null;try{const url=new URL(value);return ["http:","https:"].includes(url.protocol)&&!url.username&&!url.password?url.href:null;}catch{return null;}}

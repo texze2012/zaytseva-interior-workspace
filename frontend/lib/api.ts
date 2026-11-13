@@ -1,4 +1,5 @@
 import {
+  ScheduledEntry, EntryPayload, NotificationItem, ProjectRoom, ProcurementVariant, VariantPayload, VariantStatus,
   Agreement,
   AgreementPayload,
   Attachment,
@@ -57,8 +58,17 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, token
   }
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers, cache: "no-store" });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers, cache: "no-store" });
+  } catch {
+    throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите действие.");
+  }
   if (!response.ok) throw new ApiError(response.status, await parseError(response));
+  if (typeof window !== "undefined" && options.method && options.method !== "GET" && path !== "/auth/login" && !path.endsWith("/read") && !/^\/tasks\/\d+\/move(?:\/undo)?$/.test(path)) {
+    const message=options.method === "DELETE" ? "Удалено" : options.body instanceof FormData ? "Файл загружен" : "Сохранено";
+    window.dispatchEvent(new CustomEvent("zi:saved",{detail:message}));
+  }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
@@ -84,7 +94,28 @@ function queryString(values: Record<string, string | number | boolean | null | u
 }
 
 export const api = {
-  me: (token: string) => apiFetch<User>("/users/me", {}, token),
+  rooms: (token:string, projectId:number) => apiFetch<ProjectRoom[]>(`/projects/${projectId}/rooms`,{},token),
+  createRoom: (token:string, projectId:number, name:string) => apiFetch<ProjectRoom>(`/projects/${projectId}/rooms`,{method:"POST",body:JSON.stringify({name})},token),
+  procurementItem: (token:string, projectId:number, id:number) => apiFetch<ProcurementItem>(`/projects/${projectId}/procurement-items/${id}`,{},token),
+  deleteProcurementItem: (token:string, projectId:number, id:number) => apiFetch<void>(`/projects/${projectId}/procurement-items/${id}`,{method:"DELETE"},token),
+  variants: (token:string, projectId:number, id:number) => apiFetch<ProcurementVariant[]>(`/projects/${projectId}/procurement-items/${id}/variants`,{},token),
+  createVariant: (token:string, projectId:number, id:number, payload:VariantPayload) => apiFetch<ProcurementVariant>(`/projects/${projectId}/procurement-items/${id}/variants`,{method:"POST",body:JSON.stringify(payload)},token),
+  updateVariant: (token:string, projectId:number, id:number, variantId:number, payload:VariantPayload) => apiFetch<ProcurementVariant>(`/projects/${projectId}/procurement-items/${id}/variants/${variantId}`,{method:"PUT",body:JSON.stringify(payload)},token),
+  decideVariant: (token:string, projectId:number, id:number, variantId:number, status:VariantStatus, reviewer_note?:string) => apiFetch<ProcurementVariant>(`/projects/${projectId}/procurement-items/${id}/variants/${variantId}/decision`,{method:"PATCH",body:JSON.stringify({status,reviewer_note})},token),
+  deleteVariant: (token:string, projectId:number, id:number, variantId:number) => apiFetch<void>(`/projects/${projectId}/procurement-items/${id}/variants/${variantId}`,{method:"DELETE"},token),
+  task: (token: string, id: number) => apiFetch<Task>(`/tasks/${id}`, {}, token),
+  updateTask: (token: string, id: number, payload: Partial<TaskCreatePayload> & {expected_updated_at?:string}) => apiFetch<Task>(`/tasks/${id}`, {method: "PATCH", body: JSON.stringify(payload)}, token),
+  deleteTask: (token: string, id: number) => apiFetch<void>(`/tasks/${id}`, {method: "DELETE"}, token),
+  createStage: (token: string, projectId: number, payload: {name: string; position: number}) => apiFetch<ProjectStage>(`/projects/${projectId}/stages`, {method:"POST", body:JSON.stringify(payload)}, token),
+  updateStage: (token: string, projectId: number, id: number, payload: Partial<ProjectStage>) => apiFetch<ProjectStage>(`/projects/${projectId}/stages/${id}`, {method:"PATCH", body:JSON.stringify(payload)}, token),
+  entityAttachments: (token: string, kind: string, id: number) => apiFetch<Attachment[]>(`/entity-attachments/${kind}/${id}`, {}, token),
+  uploadEntityAttachment: (token: string, kind: string, id: number, file: File) => { const body = new FormData(); body.append("file", file); return apiFetch<Attachment>(`/entity-attachments/${kind}/${id}`, {method:"POST", body}, token); },
+  entries: (token: string, kind: "reminders" | "events") => apiFetch<ScheduledEntry[]>(`/${kind}`, {}, token),
+  createEntry: (token: string, kind: "reminders" | "events", payload: EntryPayload) => apiFetch<ScheduledEntry>(`/${kind}`, {method:"POST", body:JSON.stringify(payload)}, token),
+  updateEntry: (token: string, kind: "reminders" | "events", id: number, payload: Partial<EntryPayload & {completed: boolean; expected_revision:string}>) => apiFetch<ScheduledEntry>(`/${kind}/${id}`, {method:"PATCH", body:JSON.stringify(payload)}, token),
+  notifications: (token: string) => apiFetch<NotificationItem[]>("/notifications", {}, token),
+  readNotification: (token: string, id: number) => apiFetch<void>(`/notifications/${id}/read`, {method:"PATCH"}, token),
+  me: (token: string, signal?: AbortSignal) => apiFetch<User>("/users/me", { signal }, token),
   users: (token: string) => apiFetch<User[]>("/users", {}, token),
   updateUserRole: (token: string, userId: number, role: User["role"]) => apiFetch<User>(`/users/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }, token),
   async userOptions(token: string, currentUser: User) {
@@ -111,11 +142,12 @@ export const api = {
   stages: (token: string, projectId: number) => apiFetch<ProjectStage[]>(`/projects/${projectId}/stages`, {}, token),
 
   tasksByProject: (token: string, projectId: number) => apiFetch<Task[]>(`/projects/${projectId}/tasks`, {}, token),
-  taskFeed(token: string, params: { projectId?: number; status?: TaskStatus | "all"; mine?: boolean; period?: "today" | "overdue" } = {}) {
+  taskFeed(token: string, params: { projectId?: number; status?: TaskStatus | "all"; mine?: boolean; assigneeId?: number; period?: "today" | "overdue" } = {}) {
     return apiFetch<Task[]>(`/tasks${queryString({
       project_id: params.projectId,
       task_status: params.status && params.status !== "all" ? params.status : undefined,
       mine: params.mine ? true : undefined,
+      assignee_id: params.assigneeId,
       period: params.period,
     })}`, {}, token);
   },
@@ -149,7 +181,7 @@ export const api = {
   updatePayment: (token: string, id: number, payload: Partial<PaymentPayload>) => apiFetch<Payment>(`/payments/${id}`, { method: "PATCH", body: JSON.stringify(payload) }, token),
   changePaymentStatus: (token: string, id: number, status: PaymentStatus, paidAt?: string) => apiFetch<Payment>(`/payments/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, ...(paidAt ? { paid_at: paidAt } : {}) }) }, token),
 
-  calendar: (token: string, dateFrom: string, dateTo: string, includeCompleted = false) => apiFetch<CalendarResponse>(`/calendar${queryString({ date_from: dateFrom, date_to: dateTo, include_completed: includeCompleted })}`, {}, token),
+  calendar: (token: string, dateFrom: string, dateTo: string, includeCompleted = false, assigneeId?: number) => apiFetch<CalendarResponse>(`/calendar${queryString({ date_from: dateFrom, date_to: dateTo, include_completed: includeCompleted, assignee_id: assigneeId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })}`, {}, token),
 
   commentAttachments: (token: string, projectId: number | null, taskId: number, commentId: number) => apiFetch<Attachment[]>(projectId ? `/projects/${projectId}/tasks/${taskId}/comments/${commentId}/attachments` : `/tasks/${taskId}/comments/${commentId}/attachments`, {}, token),
   uploadCommentAttachment(token: string, projectId: number | null, taskId: number, commentId: number, file: File) {

@@ -38,7 +38,8 @@ class ProjectCreate(BaseModel):
     start_date: date | None = None
     deadline: date | None = None
 
-    responsible_id: int
+    cover_color: str = Field(default="#c8b8a6", pattern=r"^#[0-9a-fA-F]{6}$")
+    cover_attachment_id: int | None = None
 
     description: str | None = None
 
@@ -78,7 +79,8 @@ class ProjectUpdate(BaseModel):
     start_date: date | None = None
     deadline: date | None = None
 
-    responsible_id: int | None = None
+    cover_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    cover_attachment_id: int | None = None
 
     description: str | None = None
 
@@ -94,7 +96,8 @@ class ProjectRead(BaseModel):
     status: str
     start_date: date | None
     deadline: date | None
-    responsible_id: int
+    cover_color: str = Field(default="#c8b8a6", pattern=r"^#[0-9a-fA-F]{6}$")
+    cover_attachment_id: int | None = None
     created_by_id: int
     description: str | None
     created_at: datetime

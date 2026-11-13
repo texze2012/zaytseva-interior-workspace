@@ -17,6 +17,7 @@ from app.db.session import Base
 
 class ProcurementItemStatus(str, Enum):
     SELECTION = "selection"
+    STUDIO_REVIEW = "studio_review"
     QUOTE_REQUESTED = "quote_requested"
     QUOTE_RECEIVED = "quote_received"
     APPROVAL = "approval"
@@ -41,6 +42,10 @@ class ProcurementItem(Base):
         nullable=False,
         index=True
     )
+
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("project_rooms.id"), nullable=True, index=True)
+    sourcing_type: Mapped[str] = mapped_column(String(20), default="retail", server_default="retail")
+    selected_variant_id: Mapped[int | None] = mapped_column(ForeignKey("procurement_variants.id", name="fk_procurement_selected_variant", use_alter=True, ondelete="SET NULL"), nullable=True)
 
     name: Mapped[str] = mapped_column(
         String(200),

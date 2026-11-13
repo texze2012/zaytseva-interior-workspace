@@ -283,6 +283,10 @@ def delete_attachment(
         attachment.relative_path
     )
 
+    from sqlalchemy import update
+    from app.models.project import Project
+    db.execute(update(Project).where(Project.cover_attachment_id == attachment_id).values(cover_attachment_id=None))
+
     delete_attachment_record(
         db=db,
         attachment=attachment

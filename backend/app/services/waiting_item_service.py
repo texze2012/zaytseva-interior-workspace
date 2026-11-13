@@ -90,6 +90,8 @@ def create_new_waiting_item(
     item_data = data.model_dump()
 
     item_data["requested_at"] = requested_at
+    from app.services.scheduling_service import validate_schedule
+    validate_schedule(db, item_data, current_user.id)
 
     return create_waiting_item(
         db=db,
@@ -225,6 +227,13 @@ def update_existing_waiting_item(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Дата напоминания не может быть раньше даты запроса"
         )
+
+    from app.services.scheduling_service import validate_schedule
+    schedule = {key: getattr(waiting_item, key) for key in ("due_at", "reminder_offsets", "assignee_ids")}
+    if "next_reminder_date" in update_data and update_data["next_reminder_date"] != waiting_item.next_reminder_date and "due_at" not in update_data:
+        update_data.update(due_at=None, reminder_offsets=[])
+    schedule.update(update_data)
+    validate_schedule(db, schedule, waiting_item.created_by_id)
 
     return update_waiting_item(
         db=db,

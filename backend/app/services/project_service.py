@@ -48,17 +48,6 @@ def create_new_project(
     data: ProjectCreate,
     current_user: User
 ):
-    responsible = get_user_by_id(
-        db,
-        data.responsible_id
-    )
-
-    if responsible is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ответственный пользователь не найден"
-        )
-
     if (
         data.start_date is not None
         and data.deadline is not None
@@ -81,10 +70,14 @@ def create_new_project(
             status=data.status.value,
             start_date=data.start_date,
             deadline=data.deadline,
-            responsible_id=data.responsible_id,
+            responsible_id=None,
             created_by_id=current_user.id,
             description=data.description
         )
+
+        project.cover_color = data.cover_color
+        if data.cover_attachment_id is not None:
+            raise HTTPException(400, "Обложку можно выбрать после загрузки файла в проект")
 
         create_stages_bulk(
             db=db,
@@ -121,7 +114,7 @@ def update_existing_project(
         "area",
         "client_name",
         "status",
-        "responsible_id",
+        "cover_color",
     }
 
     for field in required_fields:
@@ -132,18 +125,6 @@ def update_existing_project(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Поле {field} не может быть пустым"
-            )
-
-    if "responsible_id" in update_data:
-        responsible = get_user_by_id(
-            db,
-            update_data["responsible_id"]
-        )
-
-        if responsible is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Ответственный пользователь не найден"
             )
 
     new_start_date = update_data.get(
@@ -175,6 +156,12 @@ def update_existing_project(
         update_data["status"] = (
             update_data["status"].value
         )
+
+    if update_data.get("cover_attachment_id") is not None:
+        from app.models.attachment import Attachment
+        cover = db.get(Attachment, update_data["cover_attachment_id"])
+        if not cover or cover.target_type != "project" or cover.target_id != project.id or cover.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise HTTPException(400, "Выберите фотографию, прикреплённую к этому проекту")
 
     return update_project(
         db=db,

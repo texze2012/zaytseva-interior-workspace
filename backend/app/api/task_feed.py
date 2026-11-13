@@ -38,6 +38,7 @@ def get_task_feed_endpoint(
     project_id: int | None = None,
     task_status: TaskStatus | None = None,
     period: TaskPeriod | None = None,
+    assignee_id: int | None = None,
     mine: bool = False
 ):
     return get_task_feed(
@@ -46,5 +47,6 @@ def get_task_feed_endpoint(
         project_id=project_id,
         task_status=task_status,
         period=period,
+        assignee_id=assignee_id,
         mine=mine
     )

@@ -12,7 +12,7 @@ from app.schemas.task_comment import (
 )
 from app.services.task_comment_service import (
     add_task_comment,
-    get_task_comments,
+    get_project_task_comments,
 )
 
 
@@ -65,7 +65,7 @@ def get_comments_endpoint(
         Depends(get_current_user)
     ]
 ):
-    return get_task_comments(
+    return get_project_task_comments(
         db=db,
         project_id=project_id,
         task_id=task_id

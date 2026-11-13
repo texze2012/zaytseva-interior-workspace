@@ -14,8 +14,14 @@ from app.db.session import Base
 
 
 class AttachmentTargetType(str, Enum):
+    PROJECT = "project"
+    TASK = "task"
+    REMINDER = "reminder"
+    EVENT = "event"
+    WAITING = "waiting"
     TASK_COMMENT = "task_comment"
     PROCUREMENT_ITEM = "procurement_item"
+    PROCUREMENT_VARIANT = "procurement_variant"
 
 
 class Attachment(Base):

@@ -10,6 +10,7 @@ from app.db.session import Base
 class ProjectType(str, Enum):
     APARTMENT = "apartment"
     HOUSE = "house"
+    TOWNHOUSE = "townhouse"
     APARTMENTS = "apartments"
     COMMERCIAL = "commercial"
 
@@ -79,10 +80,10 @@ class Project(Base):
         nullable=True
     )
 
-    responsible_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
-        nullable=False
-    )
+    # Legacy value retained for migration compatibility, no longer assigned.
+    responsible_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    cover_color: Mapped[str] = mapped_column(String(7), default="#c8b8a6", server_default="#c8b8a6")
+    cover_attachment_id: Mapped[int | None] = mapped_column(ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True)
 
     created_by_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),

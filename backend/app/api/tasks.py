@@ -141,5 +141,10 @@ def update_task_endpoint(
         db=db,
         project_id=project_id,
         task_id=task_id,
-        data=data
+        data=data,
+        current_user=current_user
     )
+@router.delete("/{task_id}", status_code=204)
+def delete_project_task(project_id: int, task_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]):
+    from app.services.task_service import delete_existing_task
+    delete_existing_task(db, task_id, current_user, project_id)

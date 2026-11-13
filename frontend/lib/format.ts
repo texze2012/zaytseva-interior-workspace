@@ -9,6 +9,7 @@ import {
   TaskStatus,
   WaitingStatus,
 } from "@/lib/types";
+import { parseInstant } from "@/lib/scheduling";
 
 export function formatDate(value?: string | null, fallback = "Не указано") {
   if (!value) return fallback;
@@ -26,7 +27,7 @@ export function formatShortDate(value?: string | null, fallback = "—") {
 
 export function formatDateTime(value?: string | null) {
   if (!value) return "—";
-  const date = new Date(value);
+  const date = parseInstant(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }
@@ -53,6 +54,7 @@ export function getInitial(name: string) {
 }
 
 export const projectTypeLabels: Record<ProjectType, string> = {
+  townhouse: "Таунхаус",
   apartment: "Квартира",
   house: "Дом",
   apartments: "Апартаменты",
@@ -83,6 +85,7 @@ export const taskPriorityLabels: Record<TaskPriority, string> = {
 
 export const procurementStatusLabels: Record<ProcurementStatus, string> = {
   selection: "Подбор",
+  studio_review: "На отборе у руководителя",
   quote_requested: "КП запрошено",
   quote_received: "КП получено",
   approval: "На согласовании",
@@ -115,6 +118,7 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
 };
 
 export const calendarTypeLabels: Record<CalendarEventType, string> = {
+  event: "Событие", reminder: "Напоминание",
   task: "Задача",
   waiting: "Ожидание",
   payment: "Оплата",

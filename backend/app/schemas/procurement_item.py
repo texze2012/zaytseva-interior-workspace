@@ -1,4 +1,7 @@
 from datetime import date, datetime
+from typing import Literal
+from pydantic import field_validator
+from app.schemas.procurement_selection import safe_product_url
 from decimal import Decimal
 
 from pydantic import (
@@ -13,6 +16,9 @@ from app.models.procurement_item import (
 
 
 class ProcurementItemCreate(BaseModel):
+    room_id: int | None = None
+    sourcing_type: Literal["retail", "custom"] = "retail"
+    _url = field_validator("product_url", check_fields=False)(safe_product_url)
     name: str = Field(
         min_length=2,
         max_length=200
@@ -80,6 +86,9 @@ class ProcurementItemCreate(BaseModel):
 
 
 class ProcurementItemUpdate(BaseModel):
+    room_id: int | None = None
+    sourcing_type: Literal["retail", "custom"] | None = None
+    _url = field_validator("product_url", check_fields=False)(safe_product_url)
     name: str | None = Field(
         default=None,
         min_length=2,
@@ -146,6 +155,9 @@ class ProcurementItemUpdate(BaseModel):
 
 
 class ProcurementItemRead(BaseModel):
+    room_id: int | None
+    sourcing_type: str
+    selected_variant_id: int | None
     id: int
     project_id: int
 

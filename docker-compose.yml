@@ -1,0 +1,66 @@
+version: "3.7"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: zaytseva-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - zaytseva_pgdata:/var/lib/postgresql/data
+
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: zaytseva-backend
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    depends_on:
+      - db
+
+    volumes:
+      - ./data/uploads:/app/storage/uploads
+
+    ports:
+      - "127.0.0.1:18000:8000"
+
+
+
+  notification-worker:
+    build: ./backend
+    container_name: zaytseva-notification-worker
+    env_file:
+      - .env
+    command: ["python", "-m", "app.notification_worker"]
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: /api
+
+    container_name: zaytseva-frontend
+    restart: unless-stopped
+
+    depends_on:
+      - backend
+
+    ports:
+      - "127.0.0.1:13000:3000"
+
+
+volumes:
+  zaytseva_pgdata:

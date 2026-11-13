@@ -6,6 +6,8 @@ from pydantic import (
     Field,
 )
 
+from app.schemas.scheduling import UTCDateTime, ReminderOffsets
+
 from app.models.waiting_item import WaitingItemStatus
 
 
@@ -26,6 +28,9 @@ class WaitingItemCreate(BaseModel):
 
     next_reminder_date: date | None = None
 
+    due_at: UTCDateTime | None = None
+    reminder_offsets: ReminderOffsets = Field(default_factory=list)
+    assignee_ids: list[int] = Field(default_factory=list)
     notes: str | None = None
 
 
@@ -48,6 +53,9 @@ class WaitingItemUpdate(BaseModel):
 
     next_reminder_date: date | None = None
 
+    due_at: UTCDateTime | None = None
+    reminder_offsets: ReminderOffsets = Field(default_factory=list)
+    assignee_ids: list[int] = Field(default_factory=list)
     notes: str | None = None
 
 
@@ -70,6 +78,9 @@ class WaitingItemRead(BaseModel):
     status: str
     is_reminder_due: bool
 
+    due_at: datetime | None = None
+    reminder_offsets: list[int] = Field(default_factory=list)
+    assignee_ids: list[int] = Field(default_factory=list)
     notes: str | None
 
     created_by_id: int

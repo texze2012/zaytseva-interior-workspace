@@ -14,7 +14,7 @@ export interface UserOption {
   role: UserRole;
 }
 
-export type ProjectType = "apartment" | "house" | "apartments" | "commercial";
+export type ProjectType = "apartment" | "townhouse" | "house" | "apartments" | "commercial";
 export type ProjectStatus = "planned" | "in_progress" | "review" | "completed" | "archived";
 
 export interface Project {
@@ -28,7 +28,8 @@ export interface Project {
   status: ProjectStatus;
   start_date: string | null;
   deadline: string | null;
-  responsible_id: number;
+  cover_color: string;
+  cover_attachment_id?: number | null;
   created_by_id: number;
   description: string | null;
   created_at: string;
@@ -44,7 +45,8 @@ export interface ProjectCreatePayload {
   status: ProjectStatus;
   start_date?: string | null;
   deadline?: string | null;
-  responsible_id: number;
+  cover_color: string;
+  cover_attachment_id?: number | null;
   description?: string | null;
 }
 
@@ -70,6 +72,9 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   assignee_id: number;
+  assignee_ids: number[];
+  due_at?: string | null;
+  reminder_offsets: number[];
   created_by_id: number;
   deadline: string | null;
   created_at: string;
@@ -82,6 +87,9 @@ export interface TaskCreatePayload {
   stage_id?: number | null;
   priority: TaskPriority;
   assignee_id: number;
+  assignee_ids: number[];
+  due_at?: string | null;
+  reminder_offsets: number[];
   deadline?: string | null;
 }
 
@@ -95,6 +103,7 @@ export interface TaskComment {
 
 export type ProcurementStatus =
   | "selection"
+  | "studio_review"
   | "quote_requested"
   | "quote_received"
   | "approval"
@@ -107,6 +116,9 @@ export type ProcurementStatus =
   | "completed";
 
 export interface ProcurementItem {
+  room_id: number | null;
+  sourcing_type: "retail" | "custom";
+  selected_variant_id: number | null;
   id: number;
   project_id: number;
   name: string;
@@ -130,6 +142,8 @@ export interface ProcurementItem {
 }
 
 export interface ProcurementItemPayload {
+  room_id?: number | null;
+  sourcing_type?: "retail" | "custom";
   name: string;
   room?: string | null;
   category?: string | null;
@@ -168,6 +182,9 @@ export interface WaitingItem {
   waiting_from: string;
   requested_at: string;
   next_reminder_date: string | null;
+  due_at?: string | null;
+  reminder_offsets: number[];
+  assignee_ids: number[];
   status: WaitingStatus;
   is_reminder_due: boolean;
   notes: string | null;
@@ -183,6 +200,9 @@ export interface WaitingItemPayload {
   procurement_item_id?: number | null;
   requested_at?: string | null;
   next_reminder_date?: string | null;
+  due_at?: string | null;
+  reminder_offsets?: number[];
+  assignee_ids?: number[];
   notes?: string | null;
 }
 
@@ -287,14 +307,15 @@ export interface ProcurementDashboard {
   recent_agreements: Array<{ project_name: string; agreement: Agreement }>;
 }
 
-export type CalendarEventType = "task" | "waiting" | "payment" | "delivery" | "project_stage" | "agreement";
+export type CalendarEventType = "event" | "reminder" | "task" | "waiting" | "payment" | "delivery" | "project_stage" | "agreement";
 export interface CalendarEvent {
+  created_by_id?: number | null;
   id: string;
   event_type: CalendarEventType;
   event_date: string;
   title: string;
   subtitle: string | null;
-  project_id: number;
+  project_id: number | null;
   project_name: string;
   entity_id: number;
   procurement_item_id: number | null;
@@ -303,6 +324,8 @@ export interface CalendarEvent {
   amount: number | string | null;
   currency: string | null;
   is_overdue: boolean;
+  due_at?: string | null;
+  assignee_ids: number[];
 }
 
 export interface CalendarResponse {
@@ -310,3 +333,17 @@ export interface CalendarResponse {
   date_to: string;
   events: CalendarEvent[];
 }
+
+export interface ScheduledEntry {
+  revision: string;
+  id: number; title: string; description: string | null; project_id: number | null;
+  due_at: string; ends_at?: string | null; assignee_ids: number[];
+  reminder_offsets: number[]; completed: boolean; created_by_id: number;
+}
+export type EntryPayload = Omit<ScheduledEntry, "id" | "created_by_id" | "completed" | "revision">;
+export interface NotificationItem { id: number; target_type: string; target_id: number; title: string; due_at: string; read_at: string | null; }
+
+export interface ProjectRoom {id:number;project_id:number;name:string;}
+export type VariantStatus = "candidate" | "studio_review" | "shortlisted" | "rejected" | "selected";
+export interface ProcurementVariant {id:number;item_id:number;title:string;product_url:string|null;brand:string|null;article:string|null;supplier_name:string|null;unit_price:number|string|null;currency:string;notes:string|null;status:VariantStatus;reviewer_note:string|null;reviewed_by_id:number|null;reviewed_at:string|null;}
+export type VariantPayload = Omit<ProcurementVariant,"id"|"item_id"|"status"|"reviewer_note"|"reviewed_by_id"|"reviewed_at">;

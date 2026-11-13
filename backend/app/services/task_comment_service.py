@@ -44,7 +44,7 @@ def add_task_comment(
     return comment
 
 
-def get_task_comments(
+def get_project_task_comments(
     db: Session,
     project_id: int,
     task_id: int

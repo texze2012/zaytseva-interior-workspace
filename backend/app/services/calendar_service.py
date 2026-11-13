@@ -45,6 +45,8 @@ def get_calendar(
     *,
     date_from: date,
     date_to: date,
+    assignee_id: int | None = None,
+    timezone_name: str = "UTC",
     include_completed: bool = False
 ) -> CalendarRead:
 
@@ -60,7 +62,14 @@ def get_calendar(
             detail="Период календаря не может превышать 366 дней"
         )
 
-    today = date.today()
+    from datetime import datetime
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    from app.services.scheduling_service import aware
+    try:
+        zone = ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(400, "Неизвестный часовой пояс")
+    today = datetime.now(zone).date()
 
     projects = get_all_projects(db)
 
@@ -82,10 +91,7 @@ def get_calendar(
 
     events: list[CalendarEventRead] = []
 
-    task_assignee_id = None
-
-    if current_user.role == UserRole.DESIGNER.value:
-        task_assignee_id = current_user.id
+    task_assignee_id = assignee_id
 
     tasks = get_filtered_tasks(
         db=db,
@@ -109,6 +115,9 @@ def get_calendar(
                 event_date=task.deadline,
                 title=task.title,
                 subtitle="Задача",
+                due_at=task.due_at,
+                assignee_ids=task.assignee_ids,
+                created_by_id=task.created_by_id,
                 project_id=task.project_id,
                 project_name=project_name(
                     task.project_id
@@ -148,6 +157,8 @@ def get_calendar(
                     waiting_item.next_reminder_date
                 ),
                 title=waiting_item.title,
+                due_at=waiting_item.due_at,
+                assignee_ids=waiting_item.assignee_ids or [waiting_item.created_by_id],
                 subtitle=(
                     f"Ждём от: "
                     f"{waiting_item.waiting_from}"
@@ -309,6 +320,7 @@ def get_calendar(
                 ),
                 event_date=agreement.deadline,
                 title=title,
+                assignee_ids=[agreement.responsible_id] if agreement.responsible_id else [],
                 subtitle=(
                     f"Договорённость с: "
                     f"{agreement.with_whom}"
@@ -325,9 +337,21 @@ def get_calendar(
             )
         )
 
+    from sqlalchemy import select
+    from app.models.scheduling import Reminder, StudioEvent
+    for model, kind in ((Reminder, CalendarEventType.REMINDER), (StudioEvent, CalendarEventType.EVENT)):
+        for item in db.scalars(select(model)):
+            event_date = aware(item.due_at).astimezone(zone).date()
+            if not (date_from <= event_date <= date_to) or (item.completed and not include_completed):
+                continue
+            events.append(CalendarEventRead(id=f"{kind.value}:{item.id}", event_type=kind, event_date=event_date, title=item.title, project_id=item.project_id, project_name=project_names.get(item.project_id, "Студия"), entity_id=item.id, status="done" if item.completed else "planned", due_at=item.due_at, assignee_ids=item.assignee_ids, created_by_id=item.created_by_id, is_overdue=aware(item.due_at) < datetime.now(zone) and not item.completed))
+    if assignee_id is not None:
+        events = [event for event in events if assignee_id in event.assignee_ids]
+
     events.sort(
         key=lambda event: (
             event.event_date,
+            event.due_at.isoformat() if event.due_at else "",
             event.event_type.value,
             event.title.lower()
         )

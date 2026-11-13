@@ -34,6 +34,8 @@ def get_calendar_endpoint(
         User,
         Depends(get_current_user)
     ],
+    assignee_id: int | None = None,
+    timezone: str = "UTC",
     include_completed: bool = False
 ):
     return get_calendar(
@@ -41,5 +43,7 @@ def get_calendar_endpoint(
         current_user=current_user,
         date_from=date_from,
         date_to=date_to,
+        assignee_id=assignee_id,
+        timezone_name=timezone,
         include_completed=include_completed
     )

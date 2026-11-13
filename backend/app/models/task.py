@@ -3,12 +3,15 @@ from enum import Enum
 
 from sqlalchemy import (
     Date,
+    JSON,
+    Column,
+    Table,
     DateTime,
     ForeignKey,
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 
@@ -26,6 +29,12 @@ class TaskPriority(str, Enum):
     HIGH = "high"
     URGENT = "urgent"
 
+
+task_assignees = Table(
+    "task_assignees", Base.metadata,
+    Column("task_id", ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", ForeignKey("users.id"), primary_key=True),
+)
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -84,6 +93,14 @@ class Task(Base):
         Date,
         nullable=True
     )
+
+    assignees: Mapped[list["User"]] = relationship("User", secondary=task_assignees, lazy="selectin")
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reminder_offsets: Mapped[list[int]] = mapped_column(JSON, default=list, server_default="[]")
+
+    @property
+    def assignee_ids(self) -> list[int]:
+        return [u.id for u in self.assignees] or [self.assignee_id]
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,

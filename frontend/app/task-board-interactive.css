@@ -1,0 +1,34 @@
+.task-board-interactive { min-width:0; }
+.task-board-live { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.task-board-item { min-width:0; position:relative; }
+.task-board-item__tools { display:flex; align-items:center; justify-content:space-between; min-height:30px; padding:0 3px 4px; color:var(--muted); }
+.task-board-item__tools small { font-size:11px; }
+.task-move-handle { display:inline-flex; align-items:center; gap:5px; min-height:32px; padding:3px 7px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--accent-dark); font-size:11px; cursor:grab; }
+.task-move-handle:hover { background:var(--surface); border-color:var(--border); }
+.task-move-handle:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.task-move-handle:active { cursor:grabbing; }
+.task-move-handle:disabled { cursor:wait; opacity:.55; }
+.task-board-item--pending { opacity:.65; }
+.task-board-item--dragging > .task-card-wrap { opacity:.5; }
+.task-kanban__column.task-kanban__column--droppable { outline:1px dashed var(--accent); outline-offset:3px; }
+.task-kanban__column.task-kanban__column--drop-active { outline:2px solid var(--accent); background:var(--accent-soft); }
+.task-board-drop-hint { color:var(--accent-dark); font-size:12px; margin:0 3px 12px; }
+.task-board-error { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 16px; margin-bottom:16px; background:var(--danger-soft); border:1px solid #d8ada4; border-radius:12px; color:var(--danger); font-size:13px; }
+.task-board-error > span { flex:1; min-width:180px; }
+.task-move-options { display:grid; gap:10px; }
+.task-move-options .button { justify-content:space-between; min-height:48px; }
+.task-board-undo { position:fixed; z-index:160; left:50%; bottom:26px; transform:translateX(-50%); display:flex; align-items:center; gap:16px; max-width:calc(100vw - 32px); width:max-content; padding:14px 18px; border:1px solid #718262; border-radius:14px; background:#34472b; color:#fff; box-shadow:0 12px 30px #1d2a2526; }
+.task-board-undo > span { min-width:0; display:grid; gap:4px; }
+.task-board-undo strong { font-size:13px; font-weight:600; }
+.task-board-undo small { font-size:12px; max-width:330px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; opacity:.85; }
+.task-board-undo button { flex-shrink:0; border:0; padding:8px; border-radius:7px; background:transparent; color:#fff; font-size:13px; font-weight:600; min-height:36px; }
+.task-board-undo button:hover { background:#ffffff16; }
+.task-board-undo button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+@media (max-width:899px) {
+  .task-board-undo { bottom:calc(92px + env(safe-area-inset-bottom)); gap:9px; padding:12px; }
+  .task-board-undo small { max-width:calc(100vw - 200px); }
+  .task-board-undo button,.task-move-handle { min-height:44px; }
+}
+@media (hover:none), (pointer:coarse) {
+  .task-move-handle { cursor:pointer; }
+}

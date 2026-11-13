@@ -4,9 +4,10 @@ export type IconName =
   | "dashboard" | "projects" | "waiting" | "money" | "calendar" | "tasks"
   | "plus" | "chevronRight" | "chevronLeft" | "logout" | "close" | "check"
   | "clock" | "alert" | "delivery" | "agreement" | "file" | "download"
-  | "trash" | "upload" | "external" | "filter" | "search" | "user" | "menu";
+  | "trash" | "upload" | "external" | "filter" | "search" | "user" | "menu" | "bell";
 
 const paths: Record<IconName, ReactNode> = {
+  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
   projects: <><path d="M3 7h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h4"/></>,
   waiting: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,

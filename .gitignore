@@ -32,3 +32,29 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Environment files and credentials (keep safe templates)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Runtime data, user uploads and deployment backups
+**/storage/uploads/
+/data/
+/backups/
+*.dump
+*.sqlite
+*.sqlite3
+*.tar.gz
+*.tgz
+*.zip
+
+# Test and build output
+.pytest_cache/
+.coverage
+htmlcov/
+*.tsbuildinfo
+test-results/
+playwright-report/
+frontend/tests/results/

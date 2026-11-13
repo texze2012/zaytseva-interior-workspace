@@ -12,7 +12,7 @@ export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?:
 }
 
 export function ProcurementStatusBadge({ status }: { status: ProcurementStatus }) {
-  const tone = status === "problem" ? "danger" : ["delivered", "completed", "approved"].includes(status) ? "good" : ["approval", "quote_requested", "quote_received"].includes(status) ? "warn" : "neutral";
+  const tone = status === "problem" ? "danger" : ["delivered", "completed", "approved"].includes(status) ? "good" : ["studio_review", "approval", "quote_requested", "quote_received"].includes(status) ? "warn" : "neutral";
   return <StatusBadge label={procurementStatusLabels[status]} tone={tone} />;
 }
 export function WaitingStatusBadge({ status, due = false }: { status: WaitingStatus; due?: boolean }) {

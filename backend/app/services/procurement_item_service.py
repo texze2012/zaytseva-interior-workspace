@@ -43,6 +43,8 @@ def create_new_procurement_item(
     item_data = data.model_dump()
 
     item_data["status"] = data.status.value
+    from app.services.procurement_selection_service import resolve_room
+    resolve_room(db, project_id, item_data)
 
     try:
         item = create_procurement_item(
@@ -133,6 +135,7 @@ def update_existing_procurement_item(
         "unit",
         "currency",
         "status",
+        "sourcing_type",
     }
 
     for field in required_fields:
@@ -149,6 +152,11 @@ def update_existing_procurement_item(
         update_data["status"] = (
             update_data["status"].value
         )
+
+    from app.services.procurement_selection_service import resolve_room, COMMERCIAL_FIELDS
+    resolve_room(db, project_id, update_data)
+    if item.selected_variant_id and any(key in update_data and update_data[key] != getattr(item, key) for key in COMMERCIAL_FIELDS):
+        raise HTTPException(409, "Товар выбран из вариантов. Сначала отмените окончательный выбор")
 
     return update_procurement_item(
         db=db,

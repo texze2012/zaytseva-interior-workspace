@@ -1,5 +1,5 @@
-from datetime import date
-from sqlalchemy import select
+from datetime import date, datetime, timedelta
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from app.models.task import Task
@@ -25,7 +25,7 @@ def get_filtered_tasks(
 
     if assignee_id is not None:
         statement = statement.where(
-            Task.assignee_id == assignee_id
+            or_(Task.assignee_id == assignee_id, Task.assignees.any(id=assignee_id))
         )
 
     if task_status is not None:
@@ -126,6 +126,11 @@ def get_task_by_id(
     )
 
 
+def get_task_by_id_for_update(db: Session, task_id: int) -> Task | None:
+    # Refresh both the scalar fields and select-in assignees after taking the lock.
+    return db.scalar(select(Task).where(Task.id == task_id).with_for_update().execution_options(populate_existing=True))
+
+
 def update_task(
     db: Session,
     task: Task,
@@ -139,6 +144,9 @@ def update_task(
             value
         )
 
+    # Relationship-only assignment changes must also invalidate an outstanding undo.
+    task.updated_at = max(datetime.utcnow(), task.updated_at + timedelta(microseconds=1))
+
     db.commit()
     db.refresh(task)
 
@@ -151,6 +159,7 @@ def update_task_status(
 ) -> Task:
 
     task.status = new_status
+    task.updated_at = max(datetime.utcnow(), task.updated_at + timedelta(microseconds=1))
 
     db.flush()
 

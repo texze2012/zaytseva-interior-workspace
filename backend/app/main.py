@@ -99,3 +99,9 @@ def database_health_check():
         "status": "ok",
         "database": "connected"
     }
+from app.api.scheduling import router as scheduling_router
+from app.api.entity_attachments import router as entity_attachments_router
+app.include_router(scheduling_router)
+app.include_router(entity_attachments_router)
+from app.api.procurement_selection import router as procurement_selection_router
+app.include_router(procurement_selection_router)
